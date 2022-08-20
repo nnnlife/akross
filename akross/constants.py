@@ -1,3 +1,5 @@
+import json
+
 UNKNOWN = 0
 # Commands
 
@@ -13,6 +15,16 @@ TO_AGENT_BROADCAST          = 1
 AGENT_TO_CLIENT_RESPONSE    = 2
 TO_PROVIDER_DIRECT_REQ      = 3
 TO_AGENT_SUBSCRIBE          = 4
+
+
+_commands = {
+    # command: int(command), comm type, minimum arguments count
+    'regist':   (REGIST,            TO_AGENT_BROADCAST,         0),
+    'list':     (PROVIDER_LIST,     AGENT_TO_CLIENT_RESPONSE,   0),
+    'minutes':  (MINUTES,           TO_PROVIDER_DIRECT_REQ,     1),
+    'days':     (DAYS,              TO_PROVIDER_DIRECT_REQ,     1),
+    'rprice':   (REALTIME_PRICE,    TO_AGENT_SUBSCRIBE,         1),
+}
 
 
 class Command:
@@ -36,17 +48,6 @@ class Command:
     def minimum_arg_count(self):
         return self._minimum_arg_count
 
-
-_commands = {
-    # command: int(command), comm type, minimum arguments count
-    'regist':   (REGIST,            TO_AGENT_BROADCAST,         0),
-    'list':     (PROVIDER_LIST,     AGENT_TO_CLIENT_RESPONSE,   0),
-    'minutes':  (MINUTES,           TO_PROVIDER_DIRECT_REQ,     1),
-    'days':     (DAYS,              TO_PROVIDER_DIRECT_REQ,     1),
-    'rprice':   (REALTIME_PRICE,    TO_AGENT_SUBSCRIBE,         1),
-}
-
-
 commands = {}
 for k, v in _commands.items():
     commands[k] = Command(*v)
@@ -64,6 +65,10 @@ def int_to_command(i):
         if c[0] == i:
             return k
     return ''
+
+
+
+
 
 
 

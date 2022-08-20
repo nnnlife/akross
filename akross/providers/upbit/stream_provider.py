@@ -12,140 +12,80 @@ from aio_pika.abc import AbstractIncomingMessage
 from aio_pika import Message, connect, ExchangeType
 import time
 import logging
+from akross.providers.rpc import AsyncStreamProvider
 
-
-
-LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-               '-35s %(lineno) -5d: %(message)s')
-LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
 
 URL = 'https://api.upbit.com'
-PROVIDER = 'upbit.crypto.default.stream.default'
+PROVIDER = 'upbit.broker.crypto.default.stream.default'
 TRADE = 'trade'
-exchange_set = dict()
-
-connection = None
-channel = None
-queue_name = ''
 
 
-async def start_stream(symbol):
-    global exchange_set
-    session = aiohttp.ClientSession()
-    print('START STREAM', str(symbol))
+class UpbitStreamProvider(AsyncStreamProvider):
+    def __init__(self, amqp_url):
+        super().__init__(PROVIDER,
+                         amqp_url,
+                         200)
+        self.rprice = self.on_rprice
+        self._exchanges = {}
 
-    new_channel = await connection.channel()
-    
-    exchange_set[symbol] = await new_channel.declare_exchange(
-        name= symbol + '.' + queue_name, type=ExchangeType.FANOUT, auto_delete=True)
+    async def start_stream(self, symbol):
+        session = aiohttp.ClientSession()
+        print('START STREAM', str(symbol))
 
-    async with session.ws_connect('wss://api.upbit.com/websocket/v1') as ws:
-        req = [{"ticket": TRADE}, {"type": TRADE, "codes": [symbol]}]
-        print('req', req)
+        new_channel = await self.connection.channel()
         
-        await ws.send_str(str(req).replace('\'', '\"'))
-        async for msg in ws:
-            msg = await ws.receive()
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                if msg.data == 'close':
-                    await ws.close()
-                    break
-                else:
-                    print('receive ', msg.data)
-            elif msg.type == aiohttp.WSMsgType.BINARY:
-                print('send stream')
-                try:
-                    await exchange_set[symbol].publish(Message(msg.data), routing_key='', )
-                except Exception as e:
-                    await ws.close()
-                    del exchange_set[symbol]
-                    break
-            elif msg.type == aiohttp.WSMsgType.CLOSE:
-                break
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                break
-    print('STREAM DONE')
+        self._exchanges[symbol] = await new_channel.declare_exchange(
+            name= symbol + '.' + self.uuid, type=ExchangeType.FANOUT, auto_delete=True)
 
-async def on_message(message: AbstractIncomingMessage) -> None:
-    print(" [x] Received message %r" % message)
-    print("Message body is: %r" % message.body)
-    
-    headers = message.headers
-
-    if 'method' in headers:
-        if headers['method'] == akross.int_to_command(akross.REALTIME_PRICE):
-            try:
-                symbol = json.loads(message.body)
-                if isinstance(symbol, list) and len(symbol) > 0:
-                    symbol = symbol[0]
-                    if symbol not in exchange_set:
-                        asyncio.create_task(start_stream(symbol))
-
-                    await channel.default_exchange.publish(
-                        aio_pika.Message(body=json.dumps({'exchange': symbol + '.' + queue_name}).encode(),
-                        correlation_id=message.correlation_id),
-                        routing_key=message.reply_to)
-                    
-            except:
-                pass
-    
-    # ack is required to prevent get request before it is processed
-
-    # apply correlation id
-    
-    await message.ack()
-
-
-async def send_health_check(exchange):
-    while True:
-        print('HEALTH Check')
-        # try:
-        await exchange.publish(
-            aio_pika.Message(
-                body=json.dumps(
-                    {'provider':PROVIDER, 
-                    'uuid': queue_name,
-                    'type': 'stream',
-                    'capacity': 400,
-                    'time': akross.get_msec(),
-                    'subscribe': list(exchange_set),
-                    'capacity': 200}
-                ).encode(),
-                headers={'name': 'upbit_broker', 'target': 'agent', 'method': 'regist'}
-            ),
-            routing_key='')
-        # except Exception as e:
-        #     print(e)
-        #     break
+        async with session.ws_connect('wss://api.upbit.com/websocket/v1') as ws:
+            req = [{"ticket": TRADE}, {"type": TRADE, "codes": [symbol]}]
+            print('req', req)
             
-        await asyncio.sleep(10)
+            await ws.send_str(str(req).replace('\'', '\"'))
+            async for msg in ws:
+                msg = await ws.receive()
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    if msg.data == 'close':
+                        await ws.close()
+                        break
+                    else:
+                        print('receive ', msg.data)
+                elif msg.type == aiohttp.WSMsgType.BINARY:
+                    print('send stream')
+                    try:
+                        await self._exchanges[symbol].publish(Message(msg.data), routing_key='', )
+                    except Exception as e:
+                        print(e)
+                        await ws.close()
+                        del self._exchanges[symbol]
+                        break
+                elif msg.type == aiohttp.WSMsgType.CLOSE:
+                    break
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    break
+        print('STREAM DONE')
+
+    async def on_rprice(self, **kwargs):
+        if 'symbol' not in kwargs:
+            raise akross.SymbolError()
+
+        symbol = kwargs['symbol']
+        if symbol not in self._exchanges:
+            asyncio.create_task(self.start_stream(symbol))
+        return {'exchange': symbol + '.' + self.uuid}
 
 
 async def main() -> None:
-    global channel, queue_name, connection
-    connection = await connect("amqp://192.168.10.70:5672")
-
-    async with connection:
-        channel = await connection.channel()
-        queue = await channel.declare_queue('', exclusive=False, auto_delete=True)
-        await queue.consume(on_message)
-        queue_name = queue.name
-
-        ms = int(time.time_ns() / 1000000)
-
-        try:
-            agent_exchange = await channel.declare_exchange(name='agent',
-                                                            type=ExchangeType.HEADERS,
-                                                            auto_delete=True)
-                                                            # passive=True)            
-        except aio_pika.exceptions.ChannelClosed as e:
-            print('Exchange not exist', e)
-            return None
-
-        await asyncio.create_task(send_health_check(agent_exchange))
+    loop = asyncio.get_running_loop()
+    stream_provider = UpbitStreamProvider("amqp://192.168.10.70:5672")
+    await stream_provider.run()
+    await loop.run_forever()
 
 
 if __name__ == '__main__':
+    LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
+                '-35s %(lineno) -5d: %(message)s')
+    LOGGER = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     asyncio.run(main())

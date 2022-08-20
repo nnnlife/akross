@@ -1,10 +1,9 @@
 import asyncio
-from aio_pika.abc import AbstractIncomingMessage
-from aio_pika import connect, ExchangeType
 import sys
 import functools
 from msg_process import MsgProcess
 import json
+from urllib import parse
 import akross
 
 
@@ -68,10 +67,10 @@ async def get_input():
     while True:
         command = (await raw_input(prefix + '> ')).strip()
         commands = command.split(' ')
-        args = []
+        dict_args = {}
         if len(commands) > 1:
             command = commands[0]
-            args = commands[1:]
+            dict_args = dict(parse.parse_qsl(commands[1]))
 
         if command == GO_UP or command == GO_ROOT:
             if command == GO_ROOT or '.' not in prefix:
@@ -93,7 +92,7 @@ async def get_input():
                 if command == GET_HINT: #TODO: decision point whether provider send hint or use constant table
                     pass
                 else:
-                    res = await msg_process.send_msg(prefix, command, *args)
+                    res = await msg_process.send_msg(prefix, command, **dict_args)
                     if res:
                             print('RESPONSE', json.loads(res.body))
                     else:

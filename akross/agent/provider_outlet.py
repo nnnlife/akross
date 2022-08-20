@@ -21,7 +21,6 @@ class ProviderOutlet(object):
         self.providers = {}
 
     def _regist(self, **kwargs):
-        print('regist called')
         if 'uuid' in kwargs:
             if kwargs['uuid'] in self.providers:
                 provider = self.providers[kwargs['uuid']]
@@ -31,25 +30,9 @@ class ProviderOutlet(object):
         return None
         
     def _list(self, **kwargs):
-        print('list called')
         return self.dumps()
 
     def add_provider(self, provider):
-        """
-            await exchange.publish(
-            aio_pika.Message(
-                body=json.dumps(
-                    {'provider':PROVIDER, 
-                     'uuid': vm_id,
-                     'type': 'rest',
-                     'time': ms,
-                     'subscirbe': [],
-                     'capacity': 0}
-                ).encode(),
-                headers={'name': 'upbit_broker', 'target': 'agent', 'method': 'regist'}
-            ),
-            routing_key=''
-        """
         self.providers[provider['uuid']] = provider
         LOGGER.info('Add provider(%d): %s', len(self.providers), provider)
 
@@ -77,7 +60,6 @@ class ProviderOutlet(object):
         return json.dumps(final_deliver).encode()
 
     def process_agent_message(self, headers, body):
-        print('process_agent_message', headers, body)
         try:
             content = json.loads(body) if len(body) > 0 else {}
             res = self.methods[headers['method']](**content)
@@ -85,7 +67,6 @@ class ProviderOutlet(object):
             print(e)
             res = None
 
-        print('return', res)
         return res
 
     def get_stream_provider(self, name, body):
@@ -93,7 +74,7 @@ class ProviderOutlet(object):
         providers = []
         for k, provider in self.providers.items():
             provider_name = name.split('_')[0]
-            if provider['type'] == 'stream' and provider['provider'].startswith(provider_name):
+            if provider['service'] == 'stream' and provider['provider'].startswith(provider_name):
                 providers.append(provider)
         
         if len(providers) > 0:

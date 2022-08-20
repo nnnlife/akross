@@ -85,8 +85,8 @@ class ClientQueue(object):
 
     def on_queue_declareok(self, method_frame):
         self._queue_name = method_frame.method.queue
-        LOGGER.info('Binding exchange %s to %s with routing %s', 
-                    self._exchange_name, self._queue_name, self._routing_key)
+        LOGGER.info('Binding exchange %s to %s with routing %s, headers %s', 
+                    self._exchange_name, self._queue_name, self._routing_key, self._headers)
         cb = functools.partial(self.on_bindok, userdata=self._queue_name)
         self._channel.queue_bind(
             self._queue_name,

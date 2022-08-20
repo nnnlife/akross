@@ -9,9 +9,10 @@ import time
 import json
 from pikaqt import PikaQtLoop
 import stock_chart
-from datetime import datetime
+
 
 from akross.providers.cybos.stock_subscribe import StockSubscribe
+import akross
 import functools
 import logging
 
@@ -90,6 +91,10 @@ class RabbitMQManager(QtCore.QObject):
     def on_response(self, ch, method, props, body):
         print('Message Received')
 
+        headers = props.headers
+        if headers['method'] == akross.int_to_command(akross.REALTIME_PRICE):
+            symbol = json.loads(body)
+            if isinstance(symbol, list) and len(symbol) > 0:
         tmp_name = 'A005930'
         cb = functools.partial(self.on_exchange_declareok,
                                userdata=tmp_name,

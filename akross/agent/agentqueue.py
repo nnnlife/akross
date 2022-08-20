@@ -27,13 +27,7 @@ class AgentQueue(clientqueue.ClientQueue):
                          headers=headers)
 
     def on_message(self, _unused_channel, basic_deliver, properties, body):
-        LOGGER.info('Agent Received message # %s(%s) from %s: %s(reply:%s)',
-                    basic_deliver.delivery_tag, 
-                    properties.app_id,
-                    properties.headers,
-                    body,
-                    properties.reply_to)
-        print(type(properties.headers), properties, 'body', body)
+
         if 'target' in properties.headers:
             if properties.headers['target'] == AgentQueue.AGENT:
                 res = self.provider_outlet.process_agent_message(properties.headers, body)
@@ -44,8 +38,15 @@ class AgentQueue(clientqueue.ClientQueue):
                                                      body=res)
             elif (properties.headers['target'] == AgentQueue.BROKER and
                   'name' in properties.headers):
+                LOGGER.info('Agent Received message # %s(%s) from %s: %s(reply:%s)',
+                            basic_deliver.delivery_tag, 
+                            properties.app_id,
+                            properties.headers,
+                            body,
+                            properties.reply_to)
                 provider = self.provider_outlet.get_stream_provider(properties.headers['name'], body)
                 if provider:
+                    print('publish to provider')
                     self.get_channel().basic_publish(exchange='',
                                                      routing_key=provider['uuid'],
                                                      properties=properties,

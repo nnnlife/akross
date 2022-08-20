@@ -59,7 +59,7 @@ class MsgProcess(object):
 
     async def _on_response_msg(self, message: AbstractIncomingMessage) -> None:
         LOGGER.debug('response msg: %s', message)
-        print(message)
+
         try:
             if len(message.correlation_id) > 0:
                 if message.correlation_id in self._msg_dict:
@@ -74,7 +74,7 @@ class MsgProcess(object):
 
 
     async def _on_subscribe_message(self, message: AbstractIncomingMessage) -> None:
-        print(message)
+        LOGGER.info('Get Provider from agent : %s', str(message))
         self._last_subscribed_msg = message
         self._subscirbe_msg_total_count += 1
 
@@ -131,10 +131,8 @@ class MsgProcess(object):
                 continue
             
             break
-            
-            
 
-    async def send_msg(self, provider, cmd, *args):
+    async def send_msg(self, provider, cmd, **kwargs):
         if cmd not in akross.commands:
             return None
 
@@ -142,7 +140,7 @@ class MsgProcess(object):
         if akross.commands[cmd].cmd_type == akross.TO_PROVIDER_DIRECT_REQ:
             msg = aio_pika.Message(reply_to=self._queue.name,
                                    headers={'method': cmd},
-                                    body=json.dumps(args).encode(),
+                                    body=json.dumps(kwargs).encode(),
                                    correlation_id=msg_id)
 
             return await self._send_block_msg(self._channel.default_exchange,
@@ -152,23 +150,30 @@ class MsgProcess(object):
             provider_name = provider.split('.')[0]
             msg = aio_pika.Message(reply_to=self._queue.name,
                                     headers={'method': cmd, 'name': provider_name + '_broker', 'target': 'broker'},
-                                    body=json.dumps(args).encode(),
+                                    body=json.dumps(kwargs).encode(),
                                     correlation_id=msg_id)
+            print('msg', msg)
             res = await self._send_block_msg(self._agent_exchange,
                                               msg, '', msg_id)
             if len(res.body) == 0:
                 print('No available provider')
             else:
                 try:
+                    print('receive msg')
                     exchange_info = json.loads(res.body)
-
-                    if isinstance(exchange_info, dict) and 'exchange' in exchange_info:
-                        await self._check_exchange(exchange_info['exchange'])
+                
+                    if (isinstance(exchange_info, dict) and
+                        'result' in exchange_info and
+                        exchange_info['result'] == 'ok' and
+                        'msg' in exchange_info and
+                        'exchange' in exchange_info['msg']):
+                        exchange_name = exchange_info['msg']['exchange']
+                        await self._check_exchange(exchange_name)
                         
-                        print('bind to', exchange_info['exchange'])
-                        await self._subscribe_queue.bind(exchange_info['exchange'])
-                except:
-                    pass
+                        print('bind to', exchange_name)
+                        await self._subscribe_queue.bind(exchange_name)
+                except Exception as e:
+                    print(e)
             return res
 
         

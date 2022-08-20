@@ -49,7 +49,7 @@ Source = "https://github.com/nnnlife/akross_client"
 [tool.setuptools]
 zip-safe = true
 include-package-data = false
-packages = ["akross", "akross.agent", "akross.providers.cybos", "akross.providers.upbit"]
+packages = ["akross", "akross.agent", "akross.providers", "akross.providers.cybos", "akross.providers.upbit"]
 
 [tool.setuptools.package-data]
 "*" = ["LICENSE", "README.rst"]
