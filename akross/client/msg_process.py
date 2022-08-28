@@ -9,8 +9,7 @@ import akross
 
 
 LOGGER = logging.getLogger(__name__)
-LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-              '-35s %(lineno) -5d: %(message)s')
+
 
 
 class MsgProcess(object):
@@ -29,7 +28,9 @@ class MsgProcess(object):
 
     @property
     def last_subscribed_msg(self):
-        return self._last_subscribed_msg
+        msg = self._last_subscribed_msg
+        self._last_subscribed_msg = ''
+        return msg
 
     async def connect(self):
         LOGGER.info('Connecting to %s', self._pika_url)
@@ -84,7 +85,7 @@ class MsgProcess(object):
         msg = aio_pika.Message(
             reply_to=self._queue.name,
             headers={
-                'broadcast': True,
+                'broadcast': '1',
                 'target': 'agent',
                 'method': 'list'},
             body=b'',
@@ -179,6 +180,8 @@ class MsgProcess(object):
         
 
 if __name__ == '__main__':
+    LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
+              '-35s %(lineno) -5d: %(message)s')
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
     msgp = MsgProcess('amqp://192.168.10.70:5672')

@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
     
     if len(sys.argv) < 3:
         print(f'Usage: python3 {sys.argv[0]} agent_name type')

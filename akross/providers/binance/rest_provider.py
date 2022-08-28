@@ -8,7 +8,7 @@ from akross.providers.rpc import AsyncRestProvider
 from binance import AsyncClient
 
 
-PROVIDER = 'binance.broker.crypto.default.rest.default'
+PROVIDER = 'binance.broker.crypto.default.spot.rest'
 
 
 class BinanceRestProvider(AsyncRestProvider):

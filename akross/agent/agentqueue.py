@@ -19,7 +19,7 @@ class AgentQueue(clientqueue.ClientQueue):
         headers = {'x-match': 'any',
                    'type': agent_type,
                    'name': agent_name + '_' + agent_type,
-                   'broadcast': True}
+                   'broadcast': '1'}
         super().__init__(connection,
                          provider_outlet,
                          exchange_name='agent',
@@ -27,7 +27,7 @@ class AgentQueue(clientqueue.ClientQueue):
                          headers=headers)
 
     def on_message(self, _unused_channel, basic_deliver, properties, body):
-
+        print('Receive Message', basic_deliver, properties, body)
         if 'target' in properties.headers:
             if properties.headers['target'] == AgentQueue.AGENT:
                 res = self.provider_outlet.process_agent_message(properties.headers, body)

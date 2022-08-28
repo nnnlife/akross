@@ -21,7 +21,7 @@ LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
-PROVIDER='cybos.stock.krx.rest.default'
+PROVIDER='cybos.broker.stock.krx.rest.default'
 
 vm_id = str(uuid.uuid4())
 

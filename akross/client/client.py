@@ -41,7 +41,6 @@ async def auto_complete(current_level, command, current=''):
     search = current + ('.' if len(current) else '') + command
     candidates = []
     for provider in providers:
-        print(provider['provider'], search)
         if provider['provider'].startswith(search):
             candidates.append(provider)
 
